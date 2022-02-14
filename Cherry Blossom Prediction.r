@@ -77,7 +77,6 @@ ls_fit <- lm(bloom_doy ~ location * year, data = cherry, subset = year >= 1880)
 
 # Precipitaiton Model
 
-# CO2 Model
 
 # Solar Irradiance Model
 
@@ -86,5 +85,32 @@ ls_fit <- lm(bloom_doy ~ location * year, data = cherry, subset = year >= 1880)
 # Well, there is historical weather data!
 # Use NOAA Covariants
 
-# Compate the correlation factors, weight all of the models together propotional to their accuracy
+# Compate the correlation factors
+# weight all of the models together propotional to their accuracy
 
+# NOAA Variables
+# PRCP = Precipitation (tenths of mm)
+# TMAX = Maximum temperature (tenths of degrees C)
+# TMIN = Minimum temperature (tenths of degrees C)
+# SN*# = Minimum soil temperature (tenths of degrees C)
+# SX*# = Maximum soil temperature (tenths of degrees C) 
+#	     * = ground cover
+#		        0 = unknown
+#		        1 = grass
+#		        2 = fallow
+#		        3 = bare ground
+#		        4 = brome grass
+#		        5 = sod
+#		        6 = straw multch
+#		        7 = grass muck
+#		        8 = bare muck
+#		  
+#	    # =  soil depth  
+#		        1 = 5 cm
+#		        2 = 10 cm
+#		        3 = 20 cm
+#		        4 = 50 cm
+#		        5 = 100 cm
+#		        6 = 150 cm
+#		        7 = 180 cm
+# WESF = Water equivalent of snowfall (tenths of mm)
