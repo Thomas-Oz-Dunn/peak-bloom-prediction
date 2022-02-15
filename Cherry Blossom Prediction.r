@@ -15,53 +15,55 @@ doy_to_date <- function (year, doy) {
     strftime('%Y-%m-%d') # translate back to date string in ISO 8601 format
 }
 
-get_max_seasonal_temp <- function (stationid, date) {
-    # Return maximum temperature per season over the year preceding a date
+get_max_temperature <- function (stationid) {
+    # Return max seasonal temperatures
+    # @params: stationdid
+    # @return: max temperatures of each of the 4 seasons
+  ghcnd_search(stationid = stationid, var = c("tmax"), 
+               date_min = "1950-01-01", date_max = "2022-01-31")[[1]] %>%
+  mutate(year = as.integer(format(date, "%Y")),
+         month = as.integer(strftime(date, '%m')) %% 12, # make December "0"
+         season = cut(month, breaks = c(0, 2, 5, 8, 11),
+                      include.lowest = TRUE,
+                      labels = c("Winter", "Spring", "Summer", "Fall")),
+         year = if_else(month == 0, year + 1L, year)) %>%
+  group_by(year, season) %>%
+  summarize(tmax_avg = mean(tmax, na.rm = TRUE))
+}
+
+get_min_temperature <- function (stationid) {
+    # Return min seasonal temperatures
+    # @params: stationdid
+    # @return: min temperatures of each of the 4 seasons
+  ghcnd_search(stationid = stationid, var = c("tmin"), 
+               date_min = "1950-01-01", date_max = "2022-01-31")[[1]] %>%
+  mutate(year = as.integer(format(date, "%Y")),
+         month = as.integer(strftime(date, '%m')) %% 12, # make December "0"
+         season = cut(month, breaks = c(0, 2, 5, 8, 11),
+                      include.lowest = TRUE,
+                      labels = c("Winter", "Spring", "Summer", "Fall")),
+         year = if_else(month == 0, year + 1L, year)) %>%
+  group_by(year, season) %>%
+  summarize(tmax_avg = mean(tmax, na.rm = TRUE))
+}
+
+get_precipitation <- function (stationid, date){
+    # Return daily precipitation over the year preceding a date
     # @params: stationdid, date (YYYY/MM/DD)
-    # @return: max temperature of each of the 4 seasons
+    # @return: precipitation of each of the 4 seasons
     year = as.integer(strftime(date, %Y))
     ghcnd_search(stationid = stationid, 
-                var = c("tmax"),
-                date_min = doy_to_date(year - 1, doy), 
+                var = c("prcp"),
+                date_min = doy_to_date(year - 1L, doy), 
                 date_max = date)[[1]] %>%
-    mutate(month = as.integer(strftime(date, %m)) %% 12,
-            season = cut(month, breaks = c(0, 2, 5, 8, 11),
-                        include_lowest = TRUE,
-                        labels = c("Winter", "Spring", "Summer", "Autumn"))) %>%
-    group_by(season)
-}
-
-get_min_seasonal_temp <- function (stationid, date) {
-    # Return minimum temperature per season over the year preceding a date
-    # @params: stationdid, date (YYYY/MM/DD)
-    # @return: min temperature of each of the 4 seasons
-    year = as.integer(strftime(date, %Y))
-    ghcnd_search(stationid = stationid, 
-                var = c("tmin"),
-                date_min = doy_to_date(year - 1, doy), 
-                date_max = date)[[1]] %>%
-    mutate(month = as.integer(strftime(date, %m)) %% 12,
-            season = cut(month, breaks = c(0, 2, 5, 8, 11),
-                        include_lowest = TRUE,
-                        labels = c("Winter", "Spring", "Summer", "Autumn"))) %>%
-    group_by(season)
-}
-
-get_temp_day <- function (stationid, date) {
+    mutate(year = as.integer(format(date, "%Y")),
+          month = as.integer(strftime(date, %m)) %% 12,
+          day = as.integer(strftime(date, %d),
+          year = if_else(month == 0, year + 1L, year)) %>%
+    group_by(year, month, day) %>%
 
 }
 
-get_max_seasonal_prec <- function (stationid, date){
-
-}
-
-get_min_seasonal_prec <- function (stationid, date){
-
-}
-
-get_prec_day <- function (stationid, date){
-
-}
 
 # Read data
 cherry <- read.csv("data/washingtondc.csv") %>%
@@ -74,12 +76,18 @@ cherry <- read.csv("data/washingtondc.csv") %>%
 ls_fit <- lm(bloom_doy ~ location * year, data = cherry, subset = year >= 1880)
 
 # Temperature Model
+historic_temperatures <-
+  tibble(location = "washingtondc", get_max_temperature("USC00186350")) %>%
+  bind_rows(tibble(location = "liestal", get_max_temperature("GME00127786"))) %>%
+  bind_rows(tibble(location = "kyoto", get_max_temperature("JA000047759"))) %>%
+  bind_rows(tibble(location = "vancouver", get_max_temperature("CA001108395")))
+
 
 # Precipitaiton Model
 
-
 # Solar Irradiance Model
 
+# fft(z)
 
 # Need a prediction for vancouver WITHOUT historical data. 
 # Well, there is historical weather data!
