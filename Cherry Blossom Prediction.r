@@ -44,26 +44,40 @@ get_min_temperature <- function (stationid) {
                       labels = c("Winter", "Spring", "Summer", "Fall")),
          year = if_else(month == 0, year + 1L, year)) %>%
   group_by(year, season) %>%
-  summarize(tmax_avg = mean(tmax, na.rm = TRUE))
+  summarize(tmin_avg = mean(tmin, na.rm = TRUE))
 }
 
-get_precipitation <- function (stationid, date){
-    # Return daily precipitation over the year preceding a date
-    # @params: stationdid, date (YYYY/MM/DD)
-    # @return: precipitation of each of the 4 seasons
-    year = as.integer(strftime(date, %Y))
+get_precipitation <- function (stationid){
+    # Return daily precipitation 
+    # @params: stationdid
+    # @return: precipitation 
     ghcnd_search(stationid = stationid, 
                 var = c("prcp"),
-                date_min = doy_to_date(year - 1L, doy), 
-                date_max = date)[[1]] %>%
+                date_min = "1950-01-01", 
+                date_max = "2022-01-31")[[1]] %>%
     mutate(year = as.integer(format(date, "%Y")),
           month = as.integer(strftime(date, %m)) %% 12,
           day = as.integer(strftime(date, %d),
           year = if_else(month == 0, year + 1L, year)) %>%
     group_by(year, month, day) %>%
-
+    summarize(prec_avg = mean(prcp, na.rm = TRUE))
 }
 
+get_sunshine <- function (stationid){
+    # Return daily sunshine 
+    # @params: stationdid
+    # @return: sunshine
+    ghcnd_search(stationid = stationid, 
+                var = c("tsun"),
+                date_min = "1950-01-01", 
+                date_max = "2022-01-31")[[1]] %>%
+    mutate(year = as.integer(format(date, "%Y")),
+          month = as.integer(strftime(date, %m)) %% 12,
+          day = as.integer(strftime(date, %d),
+          year = if_else(month == 0, year + 1L, year)) %>%
+    group_by(year, month, day) %>%
+    summarize(sun_avg = mean(tsun, na.rm = TRUE))
+}
 
 # Read data
 cherry <- read.csv("data/washingtondc.csv") %>%
@@ -76,18 +90,47 @@ cherry <- read.csv("data/washingtondc.csv") %>%
 ls_fit <- lm(bloom_doy ~ location * year, data = cherry, subset = year >= 1880)
 
 # Temperature Model
-historic_temperatures <-
+historic_max_temperatures <-
   tibble(location = "washingtondc", get_max_temperature("USC00186350")) %>%
   bind_rows(tibble(location = "liestal", get_max_temperature("GME00127786"))) %>%
   bind_rows(tibble(location = "kyoto", get_max_temperature("JA000047759"))) %>%
   bind_rows(tibble(location = "vancouver", get_max_temperature("CA001108395")))
 
+historic_min_temperatures <-
+  tibble(location = "washingtondc", get_min_temperature("USC00186350")) %>%
+  bind_rows(tibble(location = "liestal", get_min_temperature("GME00127786"))) %>%
+  bind_rows(tibble(location = "kyoto", get_min_temperature("JA000047759"))) %>%
+  bind_rows(tibble(location = "vancouver", get_min_temperature("CA001108395")))
+
+ls_fit_max_temperature <- lm(tmax_avg ~ year * season + location, 
+                            data = historic_max_temperatures)
+ls_fit_min_temperature <- lm(tmin_avg ~ year * season + location, 
+                            data = historic_min_temperatures)
+# fft()?
 
 # Precipitaiton Model
+historic_precipitation <-
+  tibble(location = "washingtondc", get_precipitation("USC00186350")) %>%
+  bind_rows(tibble(location = "liestal", get_precipitation("GME00127786"))) %>%
+  bind_rows(tibble(location = "kyoto", get_precipitation("JA000047759"))) %>%
+  bind_rows(tibble(location = "vancouver", get_precipitation("CA001108395")))
+
+ls_fit_precipitation <- lm(prec_avg ~ year * month * day + location, 
+                            data = historic_precipitation)
+# fft()
 
 # Solar Irradiance Model
+historic_sunshine <-
+  tibble(location = "washingtondc", get_sunshine"USC00186350")) %>%
+  bind_rows(tibble(location = "liestal", get_sunshine("GME00127786"))) %>%
+  bind_rows(tibble(location = "kyoto", get_sunshine("JA000047759"))) %>%
+  bind_rows(tibble(location = "vancouver", get_sunshine("CA001108395")))
 
-# fft(z)
+ls_fit_sunshine <- lm(sun_avg ~ year * month * day + location, 
+                            data = historic_sunshine)
+# fft()?
+
+
 
 # Need a prediction for vancouver WITHOUT historical data. 
 # Well, there is historical weather data!
@@ -121,4 +164,5 @@ historic_temperatures <-
 #		        5 = 100 cm
 #		        6 = 150 cm
 #		        7 = 180 cm
+# TSUN = daily total sunshine
 # WESF = Water equivalent of snowfall (tenths of mm)
