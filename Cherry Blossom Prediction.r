@@ -1,6 +1,6 @@
 # Cherry Blossom Prediction
 # Thomas Dunn
-# 2/11/2022 
+# 2/11/2022  -> 2/28/2022
 
 # Imports
 library(tidyverse)
@@ -63,6 +63,22 @@ get_precipitation <- function (stationid){
     summarize(prec_avg = mean(prcp, na.rm = TRUE))
 }
 
+get_snowfall <- function (stationid){
+    # Return daily water equivalent snowfall
+    # @params: stationdid
+    # @return: snowfall
+    ghcnd_search(stationid = stationid, 
+                var = c("wesf"),
+                date_min = "1950-01-01", 
+                date_max = "2022-01-31")[[1]] %>%
+    mutate(year = as.integer(format(date, "%Y")),
+          month = as.integer(strftime(date, %m)) %% 12,
+          day = as.integer(strftime(date, %d),
+          year = if_else(month == 0, year + 1L, year)) %>%
+    group_by(year, month, day) %>%
+    summarize(snow_avg = mean(wesf, na.rm = TRUE))
+}
+
 get_sunshine <- function (stationid){
     # Return daily sunshine 
     # @params: stationdid
@@ -115,8 +131,18 @@ historic_precipitation <-
   bind_rows(tibble(location = "kyoto", get_precipitation("JA000047759"))) %>%
   bind_rows(tibble(location = "vancouver", get_precipitation("CA001108395")))
 
+historic_snowfall <-
+  tibble(location = "washingtondc", get_snowfall("USC00186350")) %>%
+  bind_rows(tibble(location = "liestal", get_snowfall("GME00127786"))) %>%
+  bind_rows(tibble(location = "kyoto", get_snowfall("JA000047759"))) %>%
+  bind_rows(tibble(location = "vancouver", get_snowfall("CA001108395")))
+
 ls_fit_precipitation <- lm(prec_avg ~ year * month * day + location, 
                             data = historic_precipitation)
+
+ls_fit_snowfall <- lm(snow_avg ~ year * month * day + location, 
+                            data = historic_snowfall)
+                            
 # fft()
 
 # Solar Irradiance Model
@@ -130,39 +156,16 @@ ls_fit_sunshine <- lm(sun_avg ~ year * month * day + location,
                             data = historic_sunshine)
 # fft()?
 
-
-
-# Need a prediction for vancouver WITHOUT historical data. 
-# Well, there is historical weather data!
-# Use NOAA Covariants
-
-# Compate the correlation factors
-# weight all of the models together propotional to their accuracy
-
-# NOAA Variables
-# PRCP = Precipitation (tenths of mm)
-# TMAX = Maximum temperature (tenths of degrees C)
-# TMIN = Minimum temperature (tenths of degrees C)
-# SN*# = Minimum soil temperature (tenths of degrees C)
-# SX*# = Maximum soil temperature (tenths of degrees C) 
-#	     * = ground cover
-#		        0 = unknown
-#		        1 = grass
-#		        2 = fallow
-#		        3 = bare ground
-#		        4 = brome grass
-#		        5 = sod
-#		        6 = straw multch
-#		        7 = grass muck
-#		        8 = bare muck
-#		  
-#	    # =  soil depth  
-#		        1 = 5 cm
-#		        2 = 10 cm
-#		        3 = 20 cm
-#		        4 = 50 cm
-#		        5 = 100 cm
-#		        6 = 150 cm
-#		        7 = 180 cm
-# TSUN = daily total sunshine
-# WESF = Water equivalent of snowfall (tenths of mm)
+# Plan:
+# Run least square fit models on each for linear approximations
+# Subtract linear value (time) form each set to flatten before fft
+# Divide entire dataset by 1/2*(max - min)
+# Perform fft on normalized data to run frequency analysis (find major cycles)
+# Filter out all values of slower frequency than the collection
+# Filter out all value of faster frequency than daily
+# Noise floor, keep all with abs() > x dB
+# Set annual as "zero" frequency
+# InvFFT back to time series data, what remains is "ahead" and "behind" yearly cycle (phase)
+# Find covariance factor with each variable with bloom day "ahead" and "behind" linear <- (subtract ls linear fit yo find remainung phase offset)
+# Synthesize all models based on relative covariance weighting for training data
+# Compare predictive errors rates on testing data
